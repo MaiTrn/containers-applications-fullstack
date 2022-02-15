@@ -1,0 +1,57 @@
+services:
+  mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_DATABASE: the_database
+    volumes:
+      - ./bloglist-backend/mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+      - ./bloglist-backend/mongo_data:/data/db
+
+  bloglist-backend:
+    image: bloglist-backend-dev
+    build:
+      context: ./bloglist-backend/
+      dockerfile: dev.Dockerfile
+    ports:
+      - 5000:3003
+    volumes:
+      - ./bloglist-backend/:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      MONGODB_URI: mongodb://the_username:the_password@mongo:27017/the_database
+      TEST_MONGODB_URI: mongodb://the_username:the_password@mongo:27017/the_database
+      PORT: 3003
+      SECRET: This is the secret required to generate the key
+    depends_on:
+      - mongo
+    container_name: bloglist-backend-dev_app
+
+  bloglist-frontend:
+    image: bloglist-frontend-dev
+    build:
+      context: ./bloglist-frontend/
+      dockerfile: dev.Dockerfile
+    ports:
+      - 3000:3000
+    volumes:
+      - ./bloglist-frontend/:/usr/src/app
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      REACT_APP_BACKEND_URL: http://localhost:8080/api
+    container_name: bloglist-frontend-dev_app
+
+  nginx:
+    image: nginx:1.20.1
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - 8080:80
+    depends_on:
+      - bloglist-frontend
+      - bloglist-backend
+    container_name: reverse-proxy
